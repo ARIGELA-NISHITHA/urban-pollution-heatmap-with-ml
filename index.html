@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Urban Pollution Heatmap</title>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+      html, body, #map { height: 100%; margin: 0; padding: 0; }
+    </style>
+</head>
+<body>
+  <div id="map"></div>
+
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script>
+    const map = L.map('map').setView([40.7128, -74.0060], 12);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 18
+    }).addTo(map);
+
+    const pollutionLayer = L.layerGroup().addTo(map);
+
+    function getColor(p) {
+      if (p < 30) return 'green';
+      if (p < 60) return 'yellow';
+      if (p < 90) return 'orange';
+      return 'red';
+    }
+
+    async function loadHeatmap() {
+      pollutionLayer.clearLayers();
+
+      const bounds = map.getBounds();
+      const step = 0.02;
+
+      for (let lat = bounds.getSouth(); lat <= bounds.getNorth(); lat += step) {
+        for (let lon = bounds.getWest(); lon <= bounds.getEast(); lon += step) {
+          try {
+            const res = await fetch(`/predict?lat=${lat}&lon=${lon}`);
+            const data = await res.json();
+            const color = getColor(data.pollution);
+
+            L.circle([lat, lon], {
+              radius: 100,
+              fillColor: color,
+              color: color,
+              fillOpacity: 0.5
+            }).addTo(pollutionLayer);
+
+          } catch (e) {
+            console.error('Error fetching pollution:', e);
+          }
+        }
+      }
+    }
+
+    map.on('moveend', loadHeatmap);
+    loadHeatmap();
+  </script>
+</body>
+</html>
